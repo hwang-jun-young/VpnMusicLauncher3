@@ -14,12 +14,12 @@ import java.net.URL
 object VpnGateManager {
 
     private val VPNGATE_APIS = listOf(
-    "https://raw.githubusercontent.com/sinspired/VpngateAPI/main/servers.csv",
-    "https://www.vpngate.net/api/iphone/"
-)
+        "https://www.vpngate.net/api/iphone/",
+        "https://raw.githubusercontent.com/sinspired/VpngateAPI/main/servers.csv"
+    )
 
     private const val CACHE_FILE = "vpngate_cache.json"
-    private const val CACHE_EXPIRE_MS = 7L * 24 * 60 * 60 * 1000 // 1주일
+    private const val CACHE_EXPIRE_MS = 7L * 24 * 60 * 60 * 1000
     private const val PING_TIMEOUT_MS = 2000L
     private const val TOP_SERVERS_TO_PING = 5
 
@@ -47,7 +47,6 @@ object VpnGateManager {
                 bestServer = server
             }
         }
-
         bestServer ?: servers.firstOrNull()
     }
 
@@ -68,12 +67,11 @@ object VpnGateManager {
         for (api in VPNGATE_APIS) {
             try {
                 val csv = URL(api).readText()
-                if (csv.isNotBlank() && csv.contains("opengw.net")) {
-                    val servers = parseServers(csv).filter { it.speed > 0 }.sortedByDescending { it.speed }
-                    if (servers.isNotEmpty()) {
-                        saveCache(context, servers)
-                        return@withContext servers
-                    }
+                if (csv.isBlank()) continue
+                val servers = parseServers(csv).filter { it.speed > 0 }.sortedByDescending { it.speed }
+                if (servers.isNotEmpty()) {
+                    saveCache(context, servers)
+                    return@withContext servers
                 }
             } catch (_: Exception) { continue }
         }
@@ -130,10 +128,25 @@ object VpnGateManager {
 
     private fun parseServers(csv: String): List<VpnServer> {
         val servers = mutableListOf<VpnServer>()
+        var headerFound = false
+
         for (line in csv.lines()) {
-            if (line.startsWith("#") || line.startsWith("*") || line.isBlank()) continue
-            val cols = line.split(",")
+            val trimmed = line.trim()
+            if (trimmed.isBlank()) continue
+
+            // 헤더 줄 찾기
+            if (trimmed.contains("HostName") && trimmed.contains("OpenVPN_ConfigData_Base64")) {
+                headerFound = true
+                continue
+            }
+
+            // * % 로 시작하는 줄 건너뛰기 (#은 헤더일 수 있으므로 건너뛰지 않음)
+            if (trimmed.startsWith("*") || trimmed.startsWith("%")) continue
+            if (!headerFound) continue
+
+            val cols = trimmed.split(",")
             if (cols.size < 15) continue
+
             try {
                 val ovpnBase64 = cols[14].trim()
                 if (ovpnBase64.isBlank()) continue
