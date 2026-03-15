@@ -27,7 +27,6 @@
             android:layout_marginTop="8dp"
             android:background="#FF4444" />
 
-        <!-- 상태 카드 -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -87,19 +86,30 @@
             android:backgroundTint="#FF4444"
             android:stateListAnimator="@null" />
 
+        <!-- 새 서버 찾기 버튼 -->
+        <Button
+            android:id="@+id/btnNewServer"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:text="🔄  다른 서버로 연결"
+            android:textSize="14sp"
+            android:textColor="#CCCCCC"
+            android:backgroundTint="#1E1E2E"
+            android:stateListAnimator="@null" />
+
         <!-- 자동연결 아이콘 생성 버튼 -->
         <Button
             android:id="@+id/btnAutoShortcut"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:text="⚡  바탕화면에 자동연결 아이콘 추가"
             android:textSize="14sp"
             android:textColor="#CCCCCC"
             android:backgroundTint="#1E1E2E"
             android:stateListAnimator="@null" />
 
-        <!-- 구분선 -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -140,7 +150,6 @@
 
         </LinearLayout>
 
-        <!-- 안내 -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -168,7 +177,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="1. ▶ 버튼으로 VPN + 모프 실행\n2. 잘 작동하면 ⚡ 버튼으로 자동연결 아이콘 추가\n3. 다음부터는 자동연결 아이콘으로 바로 실행"
+                    android:text="1. ▶ 버튼: 저장된 서버로 바로 연결\n2. 🔄 버튼: 새 서버 찾아서 연결\n3. 모프가 안되면 🔄 버튼으로 다른 서버 시도\n4. ⚡ 버튼: 자동연결 바탕화면 아이콘 추가"
                     android:textSize="13sp"
                     android:textColor="#888888"
                     android:lineSpacingMultiplier="1.6" />
