@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.GET_TASKS" />
 
     <queries>
+        <package android:name="net.openvpn.openvpn" />
         <package android:name="de.blinkt.openvpn" />
         <package android:name="app.morphe.android.apps.youtube.music" />
     </queries>
@@ -20,7 +21,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.NoActionBar">
 
-        <!-- 메인 앱 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -31,25 +31,19 @@
             </intent-filter>
         </activity>
 
-        <!-- 자동연결 전용 Activity (바탕화면 아이콘용) -->
+        <!-- 자동연결 전용 Activity (바탕화면 아이콘용 - 런처에 표시 안됨) -->
         <activity
             android:name=".AutoStartActivity"
             android:exported="true"
             android:screenOrientation="portrait"
             android:label="YTmusic 자동연결">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
         </activity>
 
-        <!-- 감시 서비스 -->
         <service
             android:name=".YoutubeMusicWatcherService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
