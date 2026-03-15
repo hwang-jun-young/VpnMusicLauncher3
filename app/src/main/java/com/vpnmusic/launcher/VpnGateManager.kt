@@ -3,6 +3,9 @@ package com.vpnmusic.launcher
 import android.content.Context
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
@@ -21,6 +24,7 @@ object VpnGateManager {
     private const val CACHE_FILE = "vpngate_cache.json"
     private const val CACHE_EXPIRE_MS = 7L * 24 * 60 * 60 * 1000
     private const val PING_TIMEOUT_MS = 2000L
+    private const val API_TIMEOUT_MS = 10000L  // API 요청 10초 타임아웃
     private const val TOP_SERVERS_TO_PING = 5
 
     data class VpnServer(
@@ -35,17 +39,21 @@ object VpnGateManager {
     suspend fun getBestServer(context: Context): VpnServer? = withContext(Dispatchers.IO) {
         val servers = fetchFastestServers(context)
         if (servers.isEmpty()) return@withContext null
+
+        // 상위 5개 서버 핑 테스트 병렬 처리
         val topServers = servers.take(TOP_SERVERS_TO_PING)
-        var bestServer: VpnServer? = null
-        var bestPing = Int.MAX_VALUE
-        for (server in topServers) {
-            val ping = measurePing(server.ip)
-            if (ping != -1 && ping < bestPing) {
-                bestPing = ping
-                bestServer = server
-            }
+        val pingResults = coroutineScope {
+            topServers.map { server ->
+                async { Pair(server, measurePing(server.ip)) }
+            }.awaitAll()
         }
-        bestServer ?: servers.firstOrNull()
+
+        // 핑 가장 낮은 서버 선택
+        pingResults
+            .filter { it.second != -1 }
+            .minByOrNull { it.second }
+            ?.first
+            ?: servers.firstOrNull()
     }
 
     private suspend fun measurePing(ip: String): Int = withContext(Dispatchers.IO) {
@@ -64,7 +72,11 @@ object VpnGateManager {
 
         for (api in VPNGATE_APIS) {
             try {
-                val csv = URL(api).readText()
+                // API 요청 타임아웃 적용
+                val csv = withTimeoutOrNull(API_TIMEOUT_MS) {
+                    URL(api).readText()
+                } ?: continue
+
                 if (csv.isBlank()) continue
                 val servers = parseServers(csv).filter { it.speed > 0 }.sortedByDescending { it.speed }
                 if (servers.isNotEmpty()) {
@@ -132,13 +144,11 @@ object VpnGateManager {
             val trimmed = line.trim()
             if (trimmed.isBlank()) continue
 
-            // 헤더 찾기 (#HostName 또는 HostName으로 시작)
             if (trimmed.contains("HostName") && trimmed.contains("OpenVPN_ConfigData_Base64")) {
                 headerFound = true
                 continue
             }
 
-            // * % # 로 시작하는 줄 건너뛰기
             if (trimmed.startsWith("*") || trimmed.startsWith("%") || trimmed.startsWith("#")) continue
             if (!headerFound) continue
 
