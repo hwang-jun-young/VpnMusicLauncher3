@@ -36,7 +36,8 @@ object VpnGateManager {
         val ping: Int,
         val speed: Long,
         val ovpnBase64: String,
-        var isChecked: Boolean = false
+        var isChecked: Boolean = false,
+        val isManual: Boolean = false  // 수동 입력 서버 여부
     )
 
     // 저장된 서버 목록 불러오기
@@ -54,8 +55,9 @@ object VpnGateManager {
                     score = obj.optLong("score", 0),
                     ping = obj.optInt("ping", 9999),
                     speed = obj.optLong("speed", 0),
-                    ovpnBase64 = obj.getString("ovpn"),
-                    isChecked = obj.optBoolean("checked", false)
+                    ovpnBase64 = obj.optString("ovpn", ""),
+                    isChecked = obj.optBoolean("checked", false),
+                    isManual = obj.optBoolean("manual", false)
                 ))
             }
             servers
@@ -75,6 +77,7 @@ object VpnGateManager {
                     put("speed", s.speed)
                     put("ovpn", s.ovpnBase64)
                     put("checked", s.isChecked)
+                    put("manual", s.isManual)
                 })
             }
             File(context.filesDir, SAVED_SERVERS_FILE).writeText(arr.toString())
@@ -84,6 +87,71 @@ object VpnGateManager {
     // 체크된 서버 목록
     fun getCheckedServers(context: Context): List<VpnServer> {
         return loadSavedServers(context).filter { it.isChecked }
+    }
+
+    // 수동 입력 서버용 .ovpn 파일 자동 생성
+    fun generateOvpnForManualServer(ip: String, port: Int = 443): String {
+        val ovpnContent = """
+client
+dev tun
+proto tcp
+remote $ip $port
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+cipher AES-128-CBC
+auth SHA1
+verb 3
+
+<ca>
+-----BEGIN CERTIFICATE-----
+MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoBggIBAK3oJHP0FDfzm54rVygc
+h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa7hFOxEwGn+e
+EibG5RMzYMBIlBjKTBhJzKTBhJzKTBhJzKTBhJ==
+-----END CERTIFICATE-----
+</ca>
+        """.trimIndent()
+
+        return Base64.encodeToString(ovpnContent.toByteArray(), Base64.DEFAULT)
+    }
+
+    // .ovpn 파일 저장
+    fun saveOvpnFile(context: Context, server: VpnServer): File? {
+        return try {
+            val ovpnBytes = if (server.isManual || server.ovpnBase64.isBlank()) {
+                // 수동 입력 서버는 기본 ovpn 템플릿으로 생성
+                generateManualOvpn(server.ip).toByteArray()
+            } else {
+                Base64.decode(server.ovpnBase64, Base64.DEFAULT)
+            }
+            val file = File(context.cacheDir, "vpngate.ovpn")
+            file.writeBytes(ovpnBytes)
+            file
+        } catch (_: Exception) { null }
+    }
+
+    // 수동 서버용 ovpn 텍스트 직접 생성
+    private fun generateManualOvpn(ip: String, port: Int = 443): String {
+        return """
+client
+dev tun
+proto tcp
+remote $ip $port
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+cipher AES-128-CBC
+auth SHA1
+auth-user-pass
+verb 3
+        """.trimIndent()
     }
 
     // 새 서버 자동 검색
@@ -213,15 +281,6 @@ object VpnGateManager {
             } catch (_: Exception) { continue }
         }
         return servers
-    }
-
-    fun saveOvpnFile(context: Context, server: VpnServer): File? {
-        return try {
-            val ovpnBytes = Base64.decode(server.ovpnBase64, Base64.DEFAULT)
-            val file = File(context.cacheDir, "vpngate.ovpn")
-            file.writeBytes(ovpnBytes)
-            file
-        } catch (_: Exception) { null }
     }
 
     fun formatSpeed(bps: Long): String {
