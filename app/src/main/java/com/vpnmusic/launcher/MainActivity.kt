@@ -48,8 +48,17 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnStart.setOnClickListener { startProcess() }
         binding.btnAutoShortcut.setOnClickListener { createAutoShortcut() }
-        binding.btnOpenVpn.setOnClickListener { VpnHelper.launchMorf(this) }
-        binding.btnYoutubeMusic.setOnClickListener { VpnHelper.launchMorf(this) }
+        binding.btnOpenVpn.setOnClickListener {
+            // OpenVPN 앱 실행
+            val intent = packageManager.getLaunchIntentForPackage(VpnHelper.OPENVPN_PACKAGE)
+            if (intent != null) startActivity(intent)
+            else showToast("OpenVPN이 설치되어 있지 않습니다.")
+        }
+        binding.btnYoutubeMusic.setOnClickListener {
+            // 모프 실행
+            val ok = VpnHelper.launchMorf(this)
+            if (!ok) showToast("모프가 설치되어 있지 않습니다.")
+        }
 
         updateStatus(AppStatus.IDLE)
     }
