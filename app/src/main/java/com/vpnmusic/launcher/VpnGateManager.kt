@@ -14,11 +14,11 @@ import java.net.URL
 object VpnGateManager {
 
     private val VPNGATE_APIS = listOf(
-        "https://www.vpngate.net/en/api.aspx?iphone",
-        "https://www.vpngate.net/api/iphone/",
-        "https://1.pool.vpngate.net/api/iphone/",
-        "https://2.pool.vpngate.net/api/iphone/"
-    )
+    "https://raw.githubusercontent.com/sinspired/VpngateAPI/main/servers.csv",
+    "https://www.vpngate.net/api/iphone/",
+    "https://www.vpngate.net/en/api.aspx?iphone",
+    "https://1.pool.vpngate.net/api/iphone/"
+)
 
     private const val CACHE_FILE = "vpngate_cache.json"
     private const val CACHE_EXPIRE_MS = 7L * 24 * 60 * 60 * 1000 // 1주일
