@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity() {
     private var pendingOvpnPath: String? = null
     private var pendingIp: String? = null
     private var pendingSpeed: String? = null
+    private var isNewServerSearch = false
 
     private val vpnDisconnectedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -46,16 +47,22 @@ class MainActivity : AppCompatActivity() {
             RECEIVER_NOT_EXPORTED
         )
 
-        binding.btnStart.setOnClickListener { startProcess() }
+        binding.btnStart.setOnClickListener {
+            isNewServerSearch = false
+            startProcess()
+        }
+        binding.btnNewServer.setOnClickListener {
+            isNewServerSearch = true
+            VpnGateManager.clearLastServer(this)
+            startProcess()
+        }
         binding.btnAutoShortcut.setOnClickListener { createAutoShortcut() }
         binding.btnOpenVpn.setOnClickListener {
-            // OpenVPN 앱 실행
             val intent = packageManager.getLaunchIntentForPackage(VpnHelper.OPENVPN_PACKAGE)
             if (intent != null) startActivity(intent)
-            else showToast("OpenVPN이 설치되어 있지 않습니다.")
+            else showToast("OpenVPN Connect가 설치되어 있지 않습니다.")
         }
         binding.btnYoutubeMusic.setOnClickListener {
-            // 모프 실행
             val ok = VpnHelper.launchMorf(this)
             if (!ok) showToast("모프가 설치되어 있지 않습니다.")
         }
@@ -66,24 +73,40 @@ class MainActivity : AppCompatActivity() {
     private fun startProcess() {
         updateStatus(AppStatus.FETCHING_SERVER)
         lifecycleScope.launch {
-            binding.tvStatus.text = "🌐 빠른 서버 검색 중..."
-            val best = VpnGateManager.getBestServer(this@MainActivity)
-            if (best == null) {
+            val server = if (isNewServerSearch) {
+                binding.tvStatus.text = "🌐 새 서버 검색 중..."
+                VpnGateManager.getBestServer(this@MainActivity)
+            } else {
+                // 저장된 서버 있으면 바로 사용
+                val last = VpnGateManager.getLastServer(this@MainActivity)
+                if (last != null) {
+                    binding.tvStatus.text = "✅ 저장된 서버로 연결 중...\n${last.ip}"
+                    last
+                } else {
+                    binding.tvStatus.text = "🌐 서버 검색 중..."
+                    VpnGateManager.getBestServer(this@MainActivity)
+                }
+            }
+
+            if (server == null) {
                 updateStatus(AppStatus.ERROR, "서버를 찾지 못했습니다.\n인터넷 연결을 확인해주세요.")
                 return@launch
             }
-            val speedStr = VpnGateManager.formatSpeed(best.speed)
-            binding.tvStatus.text = "✅ 서버 발견! ${best.ip} (${speedStr})"
-            val ovpnFile = VpnGateManager.saveOvpnFile(this@MainActivity, best)
+
+            val speedStr = VpnGateManager.formatSpeed(server.speed)
+            binding.tvStatus.text = "✅ 서버: ${server.ip} (${speedStr})"
+
+            val ovpnFile = VpnGateManager.saveOvpnFile(this@MainActivity, server)
             if (ovpnFile == null) {
                 updateStatus(AppStatus.ERROR, "파일 생성 실패.")
                 return@launch
             }
-            handler.post { requestVpnPermission(ovpnFile.absolutePath, best.ip, speedStr) }
+
+            handler.post { requestVpnPermission(ovpnFile.absolutePath, server.ip, speedStr, server) }
         }
     }
 
-    private fun requestVpnPermission(ovpnPath: String, ip: String, speed: String) {
+    private fun requestVpnPermission(ovpnPath: String, ip: String, speed: String, server: VpnGateManager.VpnServer) {
         val vpnIntent = VpnService.prepare(this)
         if (vpnIntent != null) {
             pendingOvpnPath = ovpnPath
@@ -91,7 +114,7 @@ class MainActivity : AppCompatActivity() {
             pendingSpeed = speed
             startActivityForResult(vpnIntent, REQ_VPN)
         } else {
-            connectVpn(ovpnPath, ip, speed)
+            connectVpn(ovpnPath, ip, speed, server)
         }
     }
 
@@ -99,23 +122,23 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_VPN && resultCode == RESULT_OK) {
-            connectVpn(pendingOvpnPath ?: "", pendingIp ?: "", pendingSpeed ?: "")
+            connectVpn(pendingOvpnPath ?: "", pendingIp ?: "", pendingSpeed ?: "", null)
         } else if (requestCode == REQ_VPN) {
             updateStatus(AppStatus.ERROR, "VPN 권한이 거부되었습니다.")
         }
     }
 
-    private fun connectVpn(ovpnPath: String, ip: String, speed: String) {
+    private fun connectVpn(ovpnPath: String, ip: String, speed: String, server: VpnGateManager.VpnServer?) {
         val ok = VpnHelper.launchOpenVpnWithProfile(this, ovpnPath)
         if (!ok) {
-            updateStatus(AppStatus.ERROR, "OpenVPN for Android를 설치해주세요.\n(개발자: Arne Schwabe)")
+            updateStatus(AppStatus.ERROR, "OpenVPN Connect를 설치해주세요.")
             return
         }
         updateStatus(AppStatus.CONNECTING_VPN, ip, speed)
-        startVpnMonitoring()
+        startVpnMonitoring(server)
     }
 
-    private fun startVpnMonitoring() {
+    private fun startVpnMonitoring(server: VpnGateManager.VpnServer?) {
         var elapsed = 0L
         vpnCheckRunnable = object : Runnable {
             override fun run() {
@@ -123,6 +146,8 @@ class MainActivity : AppCompatActivity() {
                 when {
                     VpnHelper.isVpnActive(this@MainActivity) -> {
                         stopMonitoring()
+                        // 성공한 서버 저장
+                        server?.let { VpnGateManager.saveLastServer(this@MainActivity, it) }
                         updateStatus(AppStatus.VPN_CONNECTED)
                         handler.postDelayed({
                             val ok = VpnHelper.launchMorf(this@MainActivity)
@@ -136,7 +161,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     elapsed >= VpnHelper.VPN_TIMEOUT_MS -> {
                         stopMonitoring()
-                        updateStatus(AppStatus.ERROR, "VPN 연결 시간 초과.\nOpenVPN 앱에서 수동 연결 후\n모프 버튼을 눌러주세요.")
+                        updateStatus(AppStatus.ERROR, "VPN 연결 시간 초과.\n🔄 새 서버 찾기 버튼을 눌러주세요.")
                     }
                     else -> {
                         val remaining = (VpnHelper.VPN_TIMEOUT_MS - elapsed) / 1000
@@ -180,6 +205,7 @@ class MainActivity : AppCompatActivity() {
                     binding.statusIcon.text = "⏸"
                     binding.progressBar.visibility = android.view.View.GONE
                     binding.btnStart.isEnabled = true
+                    binding.btnNewServer.isEnabled = true
                     binding.btnStart.text = "▶  VPN + 모프 시작"
                 }
                 AppStatus.FETCHING_SERVER -> {
@@ -187,24 +213,28 @@ class MainActivity : AppCompatActivity() {
                     binding.statusIcon.text = "🔍"
                     binding.progressBar.visibility = android.view.View.VISIBLE
                     binding.btnStart.isEnabled = false
+                    binding.btnNewServer.isEnabled = false
                 }
                 AppStatus.CONNECTING_VPN -> {
                     binding.tvStatus.text = "VPN 연결 중...\n$ip ($speed)"
                     binding.statusIcon.text = "🔄"
                     binding.progressBar.visibility = android.view.View.VISIBLE
                     binding.btnStart.isEnabled = false
+                    binding.btnNewServer.isEnabled = false
                 }
                 AppStatus.VPN_CONNECTED -> {
                     binding.tvStatus.text = "VPN 연결 완료!\n모프 실행 중..."
                     binding.statusIcon.text = "🔒"
                     binding.progressBar.visibility = android.view.View.VISIBLE
                     binding.btnStart.isEnabled = false
+                    binding.btnNewServer.isEnabled = false
                 }
                 AppStatus.MORF_LAUNCHED -> {
                     binding.tvStatus.text = "완료!\n모프 종료 시 VPN도 자동 해제됩니다."
                     binding.statusIcon.text = "✅"
                     binding.progressBar.visibility = android.view.View.GONE
                     binding.btnStart.isEnabled = true
+                    binding.btnNewServer.isEnabled = true
                     binding.btnStart.text = "↺  다시 시작"
                 }
                 AppStatus.ERROR -> {
@@ -212,6 +242,7 @@ class MainActivity : AppCompatActivity() {
                     binding.statusIcon.text = "❌"
                     binding.progressBar.visibility = android.view.View.GONE
                     binding.btnStart.isEnabled = true
+                    binding.btnNewServer.isEnabled = true
                     binding.btnStart.text = "↺  다시 시도"
                 }
             }
