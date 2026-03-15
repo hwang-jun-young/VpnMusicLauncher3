@@ -73,7 +73,6 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 저장된 서버로 연결 -->
         <Button
             android:id="@+id/btnStart"
             android:layout_width="match_parent"
@@ -86,7 +85,6 @@
             android:backgroundTint="#FF4444"
             android:stateListAnimator="@null" />
 
-        <!-- 자동 검색 -->
         <Button
             android:id="@+id/btnAutoSearch"
             android:layout_width="match_parent"
@@ -98,7 +96,6 @@
             android:backgroundTint="#1E1E2E"
             android:stateListAnimator="@null" />
 
-        <!-- 서버 목록 -->
         <Button
             android:id="@+id/btnServerList"
             android:layout_width="match_parent"
@@ -110,7 +107,6 @@
             android:backgroundTint="#1E1E2E"
             android:stateListAnimator="@null" />
 
-        <!-- 자동연결 아이콘 -->
         <Button
             android:id="@+id/btnAutoShortcut"
             android:layout_width="match_parent"
