@@ -22,7 +22,7 @@ object VpnGateManager {
     )
 
     private const val CACHE_FILE = "vpngate_cache.json"
-    private const val LAST_SERVER_FILE = "last_server.json"
+    private const val SAVED_SERVERS_FILE = "saved_servers.json"
     private const val CACHE_EXPIRE_MS = 7L * 24 * 60 * 60 * 1000
     private const val PING_TIMEOUT_MS = 2000L
     private const val API_TIMEOUT_MS = 10000L
@@ -35,47 +35,58 @@ object VpnGateManager {
         val score: Long,
         val ping: Int,
         val speed: Long,
-        val ovpnBase64: String
+        val ovpnBase64: String,
+        var isChecked: Boolean = false
     )
 
-    // 마지막 성공한 서버로 연결
-    suspend fun getLastServer(context: Context): VpnServer? = withContext(Dispatchers.IO) {
-        try {
-            val file = File(context.filesDir, LAST_SERVER_FILE)
-            if (!file.exists()) return@withContext null
-            val obj = JSONObject(file.readText())
-            VpnServer(
-                hostname = obj.getString("hostname"),
-                ip = obj.getString("ip"),
-                score = obj.getLong("score"),
-                ping = obj.getInt("ping"),
-                speed = obj.getLong("speed"),
-                ovpnBase64 = obj.getString("ovpn")
-            )
-        } catch (_: Exception) { null }
+    // 저장된 서버 목록 불러오기
+    fun loadSavedServers(context: Context): MutableList<VpnServer> {
+        return try {
+            val file = File(context.filesDir, SAVED_SERVERS_FILE)
+            if (!file.exists()) return mutableListOf()
+            val arr = JSONArray(file.readText())
+            val servers = mutableListOf<VpnServer>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                servers.add(VpnServer(
+                    hostname = obj.getString("hostname"),
+                    ip = obj.getString("ip"),
+                    score = obj.optLong("score", 0),
+                    ping = obj.optInt("ping", 9999),
+                    speed = obj.optLong("speed", 0),
+                    ovpnBase64 = obj.getString("ovpn"),
+                    isChecked = obj.optBoolean("checked", false)
+                ))
+            }
+            servers
+        } catch (_: Exception) { mutableListOf() }
     }
 
-    // 마지막 성공한 서버 저장
-    fun saveLastServer(context: Context, server: VpnServer) {
+    // 저장된 서버 목록 저장
+    fun saveSavedServers(context: Context, servers: List<VpnServer>) {
         try {
-            val obj = JSONObject().apply {
-                put("hostname", server.hostname)
-                put("ip", server.ip)
-                put("score", server.score)
-                put("ping", server.ping)
-                put("speed", server.speed)
-                put("ovpn", server.ovpnBase64)
+            val arr = JSONArray()
+            servers.forEach { s ->
+                arr.put(JSONObject().apply {
+                    put("hostname", s.hostname)
+                    put("ip", s.ip)
+                    put("score", s.score)
+                    put("ping", s.ping)
+                    put("speed", s.speed)
+                    put("ovpn", s.ovpnBase64)
+                    put("checked", s.isChecked)
+                })
             }
-            File(context.filesDir, LAST_SERVER_FILE).writeText(obj.toString())
+            File(context.filesDir, SAVED_SERVERS_FILE).writeText(arr.toString())
         } catch (_: Exception) {}
     }
 
-    // 마지막 서버 삭제 (새 서버 찾기용)
-    fun clearLastServer(context: Context) {
-        File(context.filesDir, LAST_SERVER_FILE).delete()
+    // 체크된 서버 목록
+    fun getCheckedServers(context: Context): List<VpnServer> {
+        return loadSavedServers(context).filter { it.isChecked }
     }
 
-    // 새 서버 찾기
+    // 새 서버 자동 검색
     suspend fun getBestServer(context: Context): VpnServer? = withContext(Dispatchers.IO) {
         val servers = fetchFastestServers(context)
         if (servers.isEmpty()) return@withContext null
@@ -104,7 +115,7 @@ object VpnGateManager {
         } catch (_: Exception) { -1 }
     }
 
-    private suspend fun fetchFastestServers(context: Context): List<VpnServer> = withContext(Dispatchers.IO) {
+    suspend fun fetchFastestServers(context: Context): List<VpnServer> = withContext(Dispatchers.IO) {
         val cached = loadCache(context)
         if (cached.isNotEmpty()) return@withContext cached
 
