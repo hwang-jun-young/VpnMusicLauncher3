@@ -5,7 +5,6 @@
     android:orientation="vertical"
     android:background="#0A0A0F">
 
-    <!-- 상단 타이틀 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -39,7 +38,6 @@
 
     </LinearLayout>
 
-    <!-- 버튼들 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -73,7 +71,6 @@
 
     </LinearLayout>
 
-    <!-- 안내 텍스트 -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -84,7 +81,6 @@
         android:textSize="12sp"
         android:textColor="#666666" />
 
-    <!-- 서버 목록 -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
