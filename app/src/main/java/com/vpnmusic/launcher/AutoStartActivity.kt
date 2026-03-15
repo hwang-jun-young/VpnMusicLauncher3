@@ -16,39 +16,62 @@ class AutoStartActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var vpnCheckRunnable: Runnable? = null
     private var pendingOvpnPath: String? = null
+    private var checkedServers = mutableListOf<VpnGateManager.VpnServer>()
+    private var currentServerIndex = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityAutoStartBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        // 실행 즉시 자동 시작
         startAutoProcess()
     }
 
     private fun startAutoProcess() {
-        binding.tvStatus.text = "🌐 빠른 서버 검색 중..."
-        binding.statusIcon.text = "🔍"
+        checkedServers = VpnGateManager.getCheckedServers(this).toMutableList()
 
-        lifecycleScope.launch {
-            val best = VpnGateManager.getBestServer(this@AutoStartActivity)
-            if (best == null) {
-                showError("서버를 찾지 못했습니다.\n인터넷 연결을 확인해주세요.")
-                return@launch
+        if (checkedServers.isNotEmpty()) {
+            // 체크된 서버로 연결
+            currentServerIndex = 0
+            binding.tvStatus.text = "저장된 서버로 연결 중..."
+            binding.statusIcon.text = "🔄"
+            connectNextServer()
+        } else {
+            // 저장된 서버 없으면 자동 검색
+            binding.tvStatus.text = "🌐 빠른 서버 검색 중..."
+            binding.statusIcon.text = "🔍"
+            lifecycleScope.launch {
+                val best = VpnGateManager.getBestServer(this@AutoStartActivity)
+                if (best == null) {
+                    showError("서버를 찾지 못했습니다.")
+                    return@launch
+                }
+                val ovpnFile = VpnGateManager.saveOvpnFile(this@AutoStartActivity, best)
+                if (ovpnFile == null) {
+                    showError("파일 생성 실패.")
+                    return@launch
+                }
+                pendingOvpnPath = ovpnFile.absolutePath
+                handler.post { requestVpnPermission() }
             }
-
-            val speedStr = VpnGateManager.formatSpeed(best.speed)
-            binding.tvStatus.text = "✅ 서버 발견!\n${best.ip} (${speedStr})"
-
-            val ovpnFile = VpnGateManager.saveOvpnFile(this@AutoStartActivity, best)
-            if (ovpnFile == null) {
-                showError("파일 생성 실패.")
-                return@launch
-            }
-
-            pendingOvpnPath = ovpnFile.absolutePath
-            handler.post { requestVpnPermission() }
         }
+    }
+
+    private fun connectNextServer() {
+        if (currentServerIndex >= checkedServers.size) {
+            showError("모든 서버 연결 실패.\nYTmusic 앱에서 다른 서버를 선택해주세요.")
+            return
+        }
+        val server = checkedServers[currentServerIndex]
+        binding.tvStatus.text = "서버 연결 중... (${currentServerIndex + 1}/${checkedServers.size})\n${server.ip}"
+
+        val ovpnFile = VpnGateManager.saveOvpnFile(this, server)
+        if (ovpnFile == null) {
+            currentServerIndex++
+            connectNextServer()
+            return
+        }
+        pendingOvpnPath = ovpnFile.absolutePath
+        requestVpnPermission()
     }
 
     private fun requestVpnPermission() {
@@ -77,7 +100,7 @@ class AutoStartActivity : AppCompatActivity() {
 
         val ok = VpnHelper.launchOpenVpnWithProfile(this, path)
         if (!ok) {
-            showError("OpenVPN for Android를 설치해주세요.")
+            showError("OpenVPN Connect를 설치해주세요.")
             return
         }
         startVpnMonitoring()
@@ -97,7 +120,7 @@ class AutoStartActivity : AppCompatActivity() {
                             val ok = VpnHelper.launchMorf(this@AutoStartActivity)
                             if (ok) {
                                 YoutubeMusicWatcherService.start(this@AutoStartActivity)
-                                finish() // 모프 실행되면 이 화면 닫기
+                                finish()
                             } else {
                                 showError("모프가 설치되어 있지 않습니다.")
                             }
@@ -105,7 +128,14 @@ class AutoStartActivity : AppCompatActivity() {
                     }
                     elapsed >= VpnHelper.VPN_TIMEOUT_MS -> {
                         stopMonitoring()
-                        showError("VPN 연결 시간 초과.")
+                        // 다음 서버 시도
+                        if (checkedServers.isNotEmpty() && currentServerIndex < checkedServers.size - 1) {
+                            currentServerIndex++
+                            Toast.makeText(this@AutoStartActivity, "연결 실패. 다음 서버 시도...", Toast.LENGTH_SHORT).show()
+                            connectNextServer()
+                        } else {
+                            showError("VPN 연결 실패.\nYTmusic 앱에서 다른 서버를 선택해주세요.")
+                        }
                     }
                     else -> {
                         val remaining = (VpnHelper.VPN_TIMEOUT_MS - elapsed) / 1000
