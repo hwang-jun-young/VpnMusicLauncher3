@@ -76,7 +76,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 서버 목록 화면에서 돌아올 때 체크된 서버 갱신
         checkedServers = VpnGateManager.getCheckedServers(this).toMutableList()
     }
 
@@ -102,7 +101,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             checkedServers = VpnGateManager.getCheckedServers(this).toMutableList()
             if (checkedServers.isEmpty()) {
-                updateStatus(AppStatus.ERROR, "서버 목록에서 서버를 선택해주세요.\n📋 서버 목록 버튼을 눌러주세요.")
+                updateStatus(AppStatus.ERROR, "📋 서버 목록에서 서버를 선택해주세요.")
                 return
             }
             connectNextServer()
@@ -111,15 +110,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun connectNextServer() {
         if (currentServerIndex >= checkedServers.size) {
-            updateStatus(AppStatus.ERROR, "체크된 서버 모두 연결 실패.\n🔄 자동 검색 버튼을 눌러보세요.")
+            updateStatus(AppStatus.ERROR, "체크된 서버 모두 연결 실패.\n🔄 자동 검색을 눌러보세요.")
             return
         }
         val server = checkedServers[currentServerIndex]
         val speedStr = VpnGateManager.formatSpeed(server.speed)
+
+        updateStatus(AppStatus.CONNECTING_VPN, server.ip, speedStr)
         binding.tvStatus.text = "서버 연결 시도 중... (${currentServerIndex + 1}/${checkedServers.size})\n${server.ip}"
-        binding.statusIcon.text = "🔄"
-        binding.progressBar.visibility = android.view.View.VISIBLE
-        binding.btnStart.isEnabled = false
 
         val ovpnFile = VpnGateManager.saveOvpnFile(this, server)
         if (ovpnFile == null) {
@@ -184,7 +182,6 @@ class MainActivity : AppCompatActivity() {
                     }
                     elapsed >= VpnHelper.VPN_TIMEOUT_MS -> {
                         stopMonitoring()
-                        // 다음 서버 시도
                         if (!isAutoSearch && currentServerIndex < checkedServers.size - 1) {
                             currentServerIndex++
                             showToast("연결 실패. 다음 서버 시도 중...")
