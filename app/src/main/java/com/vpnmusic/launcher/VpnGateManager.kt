@@ -15,7 +15,7 @@ object VpnGateManager {
 
     private val VPNGATE_APIS = listOf(
     "https://raw.githubusercontent.com/sinspired/VpngateAPI/main/servers.csv",
-    "https://www.vpngate.net/api/iphone/",
+    "https://www.vpngate.net/api/iphone/"
 )
 
     private const val CACHE_FILE = "vpngate_cache.json"
