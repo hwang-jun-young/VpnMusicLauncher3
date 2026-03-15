@@ -22,10 +22,12 @@ object VpnGateManager {
     )
 
     private const val CACHE_FILE = "vpngate_cache.json"
+    private const val LAST_SERVER_FILE = "last_server.json"
     private const val CACHE_EXPIRE_MS = 7L * 24 * 60 * 60 * 1000
     private const val PING_TIMEOUT_MS = 2000L
-    private const val API_TIMEOUT_MS = 10000L  // API 요청 10초 타임아웃
+    private const val API_TIMEOUT_MS = 10000L
     private const val TOP_SERVERS_TO_PING = 5
+    private val EXCLUDED_COUNTRIES = setOf("KR")
 
     data class VpnServer(
         val hostname: String,
@@ -36,11 +38,48 @@ object VpnGateManager {
         val ovpnBase64: String
     )
 
+    // 마지막 성공한 서버로 연결
+    suspend fun getLastServer(context: Context): VpnServer? = withContext(Dispatchers.IO) {
+        try {
+            val file = File(context.filesDir, LAST_SERVER_FILE)
+            if (!file.exists()) return@withContext null
+            val obj = JSONObject(file.readText())
+            VpnServer(
+                hostname = obj.getString("hostname"),
+                ip = obj.getString("ip"),
+                score = obj.getLong("score"),
+                ping = obj.getInt("ping"),
+                speed = obj.getLong("speed"),
+                ovpnBase64 = obj.getString("ovpn")
+            )
+        } catch (_: Exception) { null }
+    }
+
+    // 마지막 성공한 서버 저장
+    fun saveLastServer(context: Context, server: VpnServer) {
+        try {
+            val obj = JSONObject().apply {
+                put("hostname", server.hostname)
+                put("ip", server.ip)
+                put("score", server.score)
+                put("ping", server.ping)
+                put("speed", server.speed)
+                put("ovpn", server.ovpnBase64)
+            }
+            File(context.filesDir, LAST_SERVER_FILE).writeText(obj.toString())
+        } catch (_: Exception) {}
+    }
+
+    // 마지막 서버 삭제 (새 서버 찾기용)
+    fun clearLastServer(context: Context) {
+        File(context.filesDir, LAST_SERVER_FILE).delete()
+    }
+
+    // 새 서버 찾기
     suspend fun getBestServer(context: Context): VpnServer? = withContext(Dispatchers.IO) {
         val servers = fetchFastestServers(context)
         if (servers.isEmpty()) return@withContext null
 
-        // 상위 5개 서버 핑 테스트 병렬 처리
         val topServers = servers.take(TOP_SERVERS_TO_PING)
         val pingResults = coroutineScope {
             topServers.map { server ->
@@ -48,7 +87,6 @@ object VpnGateManager {
             }.awaitAll()
         }
 
-        // 핑 가장 낮은 서버 선택
         pingResults
             .filter { it.second != -1 }
             .minByOrNull { it.second }
@@ -72,11 +110,9 @@ object VpnGateManager {
 
         for (api in VPNGATE_APIS) {
             try {
-                // API 요청 타임아웃 적용
                 val csv = withTimeoutOrNull(API_TIMEOUT_MS) {
                     URL(api).readText()
                 } ?: continue
-
                 if (csv.isBlank()) continue
                 val servers = parseServers(csv).filter { it.speed > 0 }.sortedByDescending { it.speed }
                 if (servers.isNotEmpty()) {
@@ -139,23 +175,20 @@ object VpnGateManager {
     private fun parseServers(csv: String): List<VpnServer> {
         val servers = mutableListOf<VpnServer>()
         var headerFound = false
-
         for (line in csv.lines()) {
             val trimmed = line.trim()
             if (trimmed.isBlank()) continue
-
             if (trimmed.contains("HostName") && trimmed.contains("OpenVPN_ConfigData_Base64")) {
                 headerFound = true
                 continue
             }
-
             if (trimmed.startsWith("*") || trimmed.startsWith("%") || trimmed.startsWith("#")) continue
             if (!headerFound) continue
-
             val cols = trimmed.split(",")
             if (cols.size < 15) continue
-
             try {
+                val countryShort = cols[6].trim()
+                if (countryShort in EXCLUDED_COUNTRIES) continue
                 val ovpnBase64 = cols[14].trim()
                 if (ovpnBase64.isBlank()) continue
                 servers.add(VpnServer(
