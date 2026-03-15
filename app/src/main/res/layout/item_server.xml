@@ -6,7 +6,7 @@
     android:padding="12dp"
     android:gravity="center_vertical"
     android:background="#141420"
-    android:layout_marginBottom="4dp">
+    android:layout_marginBottom="2dp">
 
     <CheckBox
         android:id="@+id/checkBox"
@@ -25,14 +25,14 @@
             android:id="@+id/tvIp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textColor="#FFFFFF" />
 
         <TextView
             android:id="@+id/tvSpeed"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:textColor="#888888"
             android:layout_marginTop="2dp" />
 
@@ -40,10 +40,10 @@
 
     <Button
         android:id="@+id/btnDelete"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
         android:text="✕"
-        android:textSize="14sp"
+        android:textSize="12sp"
         android:textColor="#FF4444"
         android:backgroundTint="#1E1E2E"
         android:stateListAnimator="@null"

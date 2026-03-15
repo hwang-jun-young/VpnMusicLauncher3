@@ -70,32 +70,102 @@
                     android:progressTint="#FF4444"
                     android:visibility="gone" />
 
+                <!-- 연결된 서버 IP + 저장 버튼 -->
+                <LinearLayout
+                    android:id="@+id/layoutConnectedServer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginTop="12dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvConnectedIp"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textSize="14sp"
+                        android:textColor="#44FF44"
+                        android:gravity="center" />
+
+                    <Button
+                        android:id="@+id/btnSaveServer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_marginStart="8dp"
+                        android:text="💾 저장"
+                        android:textSize="12sp"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="#224422"
+                        android:stateListAnimator="@null" />
+
+                </LinearLayout>
+
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <Button
-            android:id="@+id/btnStart"
+        <!-- 연결 시작 + 취소 버튼 -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="64dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="▶  저장된 서버로 연결"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#FF4444"
-            android:stateListAnimator="@null" />
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btnAutoSearch"
+            <Button
+                android:id="@+id/btnStart"
+                android:layout_width="0dp"
+                android:layout_height="64dp"
+                android:layout_weight="1"
+                android:text="▶  연결 시작"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#FF4444"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btnCancel"
+                android:layout_width="80dp"
+                android:layout_height="64dp"
+                android:layout_marginStart="8dp"
+                android:text="취소"
+                android:textSize="14sp"
+                android:textColor="#FF4444"
+                android:backgroundTint="#1E1E2E"
+                android:stateListAnimator="@null"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <!-- 수동 모드 버튼 + LED -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="52dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="🔄  빠른 서버 자동 검색"
-            android:textSize="14sp"
-            android:textColor="#CCCCCC"
-            android:backgroundTint="#1E1E2E"
-            android:stateListAnimator="@null" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
+            <View
+                android:id="@+id/ledManual"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_marginEnd="10dp"
+                android:background="@drawable/led_off" />
+
+            <Button
+                android:id="@+id/btnManualMode"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="수동 연결"
+                android:textSize="14sp"
+                android:textColor="#CCCCCC"
+                android:backgroundTint="#1E1E2E"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>
+
+        <!-- 서버 목록 -->
         <Button
             android:id="@+id/btnServerList"
             android:layout_width="match_parent"
@@ -107,6 +177,7 @@
             android:backgroundTint="#1E1E2E"
             android:stateListAnimator="@null" />
 
+        <!-- 자동연결 아이콘 -->
         <Button
             android:id="@+id/btnAutoShortcut"
             android:layout_width="match_parent"
@@ -185,7 +256,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="1. 📋 서버 목록에서 서버 추가 및 체크\n2. ▶ 버튼: 체크된 서버 순서대로 연결\n3. 🔄 버튼: 자동으로 빠른 서버 찾기\n4. 모프 종료 시 VPN 자동 해제"
+                    android:text="1. ▶ 버튼: 자동으로 서버 찾아 연결\n2. 연결 성공 시 서버 자동 저장\n3. 수동 연결: 🔴불 켜지면 서버 목록에서 직접 선택\n4. 모프 종료 시 VPN 자동 해제"
                     android:textSize="13sp"
                     android:textColor="#888888"
                     android:lineSpacingMultiplier="1.6" />

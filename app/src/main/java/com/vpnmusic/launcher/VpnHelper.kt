@@ -9,7 +9,7 @@ import androidx.core.content.FileProvider
 
 object VpnHelper {
 
-    const val OPENVPN_PACKAGE = "net.openvpn.openvpn"  // OpenVPN Connect
+    const val OPENVPN_PACKAGE = "net.openvpn.openvpn"
     const val MORF_PACKAGE = "app.morphe.android.apps.youtube.music"
     const val VPN_CHECK_INTERVAL_MS = 2000L
     const val VPN_TIMEOUT_MS = 60000L

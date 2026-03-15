@@ -23,10 +23,11 @@ object VpnGateManager {
 
     private const val CACHE_FILE = "vpngate_cache.json"
     private const val SAVED_SERVERS_FILE = "saved_servers.json"
+    private const val MY_SERVERS_FILE = "my_servers.json"
     private const val CACHE_EXPIRE_MS = 7L * 24 * 60 * 60 * 1000
     private const val PING_TIMEOUT_MS = 2000L
     private const val API_TIMEOUT_MS = 10000L
-    private const val TOP_SERVERS_TO_PING = 5
+    private const val TOP_SERVERS_TO_PING = 10
     private val EXCLUDED_COUNTRIES = setOf("KR")
 
     data class VpnServer(
@@ -37,10 +38,11 @@ object VpnGateManager {
         val speed: Long,
         val ovpnBase64: String,
         var isChecked: Boolean = false,
-        val isManual: Boolean = false  // 수동 입력 서버 여부
+        val countryShort: String = "",
+        val countryLong: String = ""
     )
 
-    // 저장된 서버 목록 불러오기
+    // 전체 서버 목록 불러오기
     fun loadSavedServers(context: Context): MutableList<VpnServer> {
         return try {
             val file = File(context.filesDir, SAVED_SERVERS_FILE)
@@ -57,14 +59,17 @@ object VpnGateManager {
                     speed = obj.optLong("speed", 0),
                     ovpnBase64 = obj.optString("ovpn", ""),
                     isChecked = obj.optBoolean("checked", false),
-                    isManual = obj.optBoolean("manual", false)
+                    countryShort = obj.optString("countryShort", ""),
+                    countryLong = obj.optString("countryLong", "")
                 ))
             }
+            // 체크된 서버가 위로 정렬
+            servers.sortWith(compareByDescending { it.isChecked })
             servers
         } catch (_: Exception) { mutableListOf() }
     }
 
-    // 저장된 서버 목록 저장
+    // 전체 서버 목록 저장
     fun saveSavedServers(context: Context, servers: List<VpnServer>) {
         try {
             val arr = JSONArray()
@@ -77,11 +82,59 @@ object VpnGateManager {
                     put("speed", s.speed)
                     put("ovpn", s.ovpnBase64)
                     put("checked", s.isChecked)
-                    put("manual", s.isManual)
+                    put("countryShort", s.countryShort)
+                    put("countryLong", s.countryLong)
                 })
             }
             File(context.filesDir, SAVED_SERVERS_FILE).writeText(arr.toString())
         } catch (_: Exception) {}
+    }
+
+    // 내 서버 목록 저장 (체크된 서버만)
+    fun saveMyServers(context: Context, servers: List<VpnServer>) {
+        try {
+            val checked = servers.filter { it.isChecked }
+            val arr = JSONArray()
+            checked.forEach { s ->
+                arr.put(JSONObject().apply {
+                    put("hostname", s.hostname)
+                    put("ip", s.ip)
+                    put("score", s.score)
+                    put("ping", s.ping)
+                    put("speed", s.speed)
+                    put("ovpn", s.ovpnBase64)
+                    put("checked", true)
+                    put("countryShort", s.countryShort)
+                    put("countryLong", s.countryLong)
+                })
+            }
+            File(context.filesDir, MY_SERVERS_FILE).writeText(arr.toString())
+        } catch (_: Exception) {}
+    }
+
+    // 내 서버 목록 불러오기
+    fun loadMyServers(context: Context): MutableList<VpnServer> {
+        return try {
+            val file = File(context.filesDir, MY_SERVERS_FILE)
+            if (!file.exists()) return mutableListOf()
+            val arr = JSONArray(file.readText())
+            val servers = mutableListOf<VpnServer>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                servers.add(VpnServer(
+                    hostname = obj.getString("hostname"),
+                    ip = obj.getString("ip"),
+                    score = obj.optLong("score", 0),
+                    ping = obj.optInt("ping", 9999),
+                    speed = obj.optLong("speed", 0),
+                    ovpnBase64 = obj.optString("ovpn", ""),
+                    isChecked = true,
+                    countryShort = obj.optString("countryShort", ""),
+                    countryLong = obj.optString("countryLong", "")
+                ))
+            }
+            servers
+        } catch (_: Exception) { mutableListOf() }
     }
 
     // 체크된 서버 목록
@@ -89,87 +142,31 @@ object VpnGateManager {
         return loadSavedServers(context).filter { it.isChecked }
     }
 
-    // 수동 입력 서버용 .ovpn 파일 자동 생성
-    fun generateOvpnForManualServer(ip: String, port: Int = 443): String {
-        val ovpnContent = """
-client
-dev tun
-proto tcp
-remote $ip $port
-resolv-retry infinite
-nobind
-persist-key
-persist-tun
-cipher AES-128-CBC
-auth SHA1
-verb 3
-
-<ca>
------BEGIN CERTIFICATE-----
-MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
-TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
-cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
-WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
-ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
-MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoBggIBAK3oJHP0FDfzm54rVygc
-h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa7hFOxEwGn+e
-EibG5RMzYMBIlBjKTBhJzKTBhJzKTBhJzKTBhJ==
------END CERTIFICATE-----
-</ca>
-        """.trimIndent()
-
-        return Base64.encodeToString(ovpnContent.toByteArray(), Base64.DEFAULT)
-    }
-
-    // .ovpn 파일 저장
-    fun saveOvpnFile(context: Context, server: VpnServer): File? {
-        return try {
-            val ovpnBytes = if (server.isManual || server.ovpnBase64.isBlank()) {
-                // 수동 입력 서버는 기본 ovpn 템플릿으로 생성
-                generateManualOvpn(server.ip).toByteArray()
-            } else {
-                Base64.decode(server.ovpnBase64, Base64.DEFAULT)
-            }
-            val file = File(context.cacheDir, "vpngate.ovpn")
-            file.writeBytes(ovpnBytes)
-            file
-        } catch (_: Exception) { null }
-    }
-
-    // 수동 서버용 ovpn 텍스트 직접 생성
-    private fun generateManualOvpn(ip: String, port: Int = 443): String {
-        return """
-client
-dev tun
-proto tcp
-remote $ip $port
-resolv-retry infinite
-nobind
-persist-key
-persist-tun
-cipher AES-128-CBC
-auth SHA1
-auth-user-pass
-verb 3
-        """.trimIndent()
-    }
-
-    // 새 서버 자동 검색
+    // 새 서버 자동 검색 (핑 병렬 테스트)
     suspend fun getBestServer(context: Context): VpnServer? = withContext(Dispatchers.IO) {
         val servers = fetchFastestServers(context)
         if (servers.isEmpty()) return@withContext null
 
-        val topServers = servers.take(TOP_SERVERS_TO_PING)
+        // 최소 속도 10Mbps 이상 필터
+        val candidates = servers.filter { it.speed >= 10_000_000 }
+            .ifEmpty { servers }
+
+        // 상위 10개 핑 테스트 병렬 실행
+        val topServers = candidates.take(TOP_SERVERS_TO_PING)
         val pingResults = coroutineScope {
             topServers.map { server ->
                 async { Pair(server, measurePing(server.ip)) }
             }.awaitAll()
         }
 
+        // 핑 응답하는 서버 중 점수 계산 (핑 낮을수록 + score 높을수록 좋음)
         pingResults
             .filter { it.second != -1 }
-            .minByOrNull { it.second }
+            .minByOrNull { (server, ping) ->
+                ping - (server.score / 100000).toInt()
+            }
             ?.first
+            ?: candidates.firstOrNull()
             ?: servers.firstOrNull()
     }
 
@@ -223,7 +220,9 @@ verb 3
                     score = obj.getLong("score"),
                     ping = obj.getInt("ping"),
                     speed = obj.getLong("speed"),
-                    ovpnBase64 = obj.getString("ovpn")
+                    ovpnBase64 = obj.getString("ovpn"),
+                    countryShort = obj.optString("countryShort", ""),
+                    countryLong = obj.optString("countryLong", "")
                 ))
             }
             servers
@@ -241,6 +240,8 @@ verb 3
                     put("ping", s.ping)
                     put("speed", s.speed)
                     put("ovpn", s.ovpnBase64)
+                    put("countryShort", s.countryShort)
+                    put("countryLong", s.countryLong)
                 })
             }
             val json = JSONObject().apply {
@@ -251,7 +252,7 @@ verb 3
         } catch (_: Exception) {}
     }
 
-    private fun parseServers(csv: String): List<VpnServer> {
+    fun parseServers(csv: String): List<VpnServer> {
         val servers = mutableListOf<VpnServer>()
         var headerFound = false
         for (line in csv.lines()) {
@@ -276,11 +277,24 @@ verb 3
                     score = cols[2].trim().toLongOrNull() ?: 0L,
                     ping = cols[3].trim().toIntOrNull() ?: 9999,
                     speed = cols[4].trim().toLongOrNull() ?: 0L,
-                    ovpnBase64 = ovpnBase64
+                    ovpnBase64 = ovpnBase64,
+                    countryShort = countryShort,
+                    countryLong = cols[5].trim()
                 ))
             } catch (_: Exception) { continue }
         }
         return servers
+    }
+
+    fun saveOvpnFile(context: Context, server: VpnServer): File? {
+        return try {
+            if (server.ovpnBase64.isBlank()) return null
+            val ovpnBytes = Base64.decode(server.ovpnBase64, Base64.DEFAULT)
+            // IP 기반 파일명 → 같은 서버면 덮어쓰기, OpenVPN 재저장 불필요
+            val file = File(context.cacheDir, "vpngate_${server.ip.replace(".", "_")}.ovpn")
+            file.writeBytes(ovpnBytes)
+            file
+        } catch (_: Exception) { null }
     }
 
     fun formatSpeed(bps: Long): String {
