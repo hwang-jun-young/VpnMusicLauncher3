@@ -31,13 +31,17 @@
             </intent-filter>
         </activity>
 
-        <!-- 자동연결 전용 Activity (바탕화면 아이콘용 - 런처에 표시 안됨) -->
         <activity
             android:name=".AutoStartActivity"
             android:exported="true"
             android:screenOrientation="portrait"
-            android:label="YTmusic 자동연결">
-        </activity>
+            android:label="YTmusic 자동연결" />
+
+        <activity
+            android:name=".ServerListActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:label="서버 목록" />
 
         <service
             android:name=".YoutubeMusicWatcherService"
