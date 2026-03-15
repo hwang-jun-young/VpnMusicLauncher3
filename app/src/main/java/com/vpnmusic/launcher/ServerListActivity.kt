@@ -33,17 +33,8 @@ class ServerListActivity : AppCompatActivity() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
 
-        // VPN Gate 서버 목록 불러오기
-        binding.btnLoadVpnGate.setOnClickListener {
-            loadVpnGateServers()
-        }
-
-        // 수동 입력
-        binding.btnAddManual.setOnClickListener {
-            showManualInputDialog()
-        }
-
-        // 뒤로가기
+        binding.btnLoadVpnGate.setOnClickListener { loadVpnGateServers() }
+        binding.btnAddManual.setOnClickListener { showManualInputDialog() }
         binding.btnBack.setOnClickListener { finish() }
     }
 
@@ -60,7 +51,6 @@ class ServerListActivity : AppCompatActivity() {
                 return@launch
             }
 
-            // 기존 저장 서버와 중복 제거 후 추가
             val existingIps = servers.map { it.ip }.toSet()
             val newServers = vpnGateServers.filter { it.ip !in existingIps }
             servers.addAll(newServers)
@@ -74,7 +64,6 @@ class ServerListActivity : AppCompatActivity() {
     }
 
     private fun showManualInputDialog() {
-        val dialogView = layoutInflater.inflate(android.R.layout.simple_list_item_1, null)
         val input = EditText(this).apply {
             hint = "IP 또는 호스트명 입력 (예: 123.456.789.0)"
             setPadding(48, 32, 48, 32)
@@ -93,7 +82,8 @@ class ServerListActivity : AppCompatActivity() {
                         ping = 0,
                         speed = 0,
                         ovpnBase64 = "",
-                        isChecked = true
+                        isChecked = true,
+                        isManual = true
                     )
                     servers.add(0, newServer)
                     adapter.notifyItemInserted(0)
@@ -115,10 +105,10 @@ class ServerListActivity : AppCompatActivity() {
     ) : RecyclerView.Adapter<ServerAdapter.ViewHolder>() {
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val checkBox: CheckBox = view.findViewById(android.R.id.text1) as? CheckBox
-                ?: CheckBox(view.context)
-            val tvIp: TextView = TextView(view.context)
-            val tvSpeed: TextView = TextView(view.context)
+            val checkBox: CheckBox = view.findViewById(R.id.checkBox)
+            val tvIp: TextView = view.findViewById(R.id.tvIp)
+            val tvSpeed: TextView = view.findViewById(R.id.tvSpeed)
+            val btnDelete: View = view.findViewById(R.id.btnDelete)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -129,25 +119,26 @@ class ServerListActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val server = list[position]
-            val itemView = holder.itemView
 
-            val checkBox = itemView.findViewById<CheckBox>(R.id.checkBox)
-            val tvIp = itemView.findViewById<TextView>(R.id.tvIp)
-            val tvSpeed = itemView.findViewById<TextView>(R.id.tvSpeed)
-            val btnDelete = itemView.findViewById<View>(R.id.btnDelete)
+            holder.checkBox.isChecked = server.isChecked
+            holder.tvIp.text = if (server.isManual) "✏️ ${server.ip}" else "${server.hostname} (${server.ip})"
+            holder.tvSpeed.text = when {
+                server.isManual -> "수동 입력"
+                server.speed > 0 -> VpnGateManager.formatSpeed(server.speed)
+                else -> "속도 정보 없음"
+            }
 
-            checkBox.isChecked = server.isChecked
-            tvIp.text = "${server.hostname} (${server.ip})"
-            tvSpeed.text = if (server.speed > 0) VpnGateManager.formatSpeed(server.speed) else "수동 입력"
-
-            checkBox.setOnCheckedChangeListener { _, isChecked ->
-                list[position].isChecked = isChecked
+            holder.checkBox.setOnCheckedChangeListener(null)
+            holder.checkBox.isChecked = server.isChecked
+            holder.checkBox.setOnCheckedChangeListener { _, isChecked ->
+                list[holder.adapterPosition].isChecked = isChecked
                 onChanged()
             }
 
-            btnDelete.setOnClickListener {
-                list.removeAt(position)
-                notifyItemRemoved(position)
+            holder.btnDelete.setOnClickListener {
+                val pos = holder.adapterPosition
+                list.removeAt(pos)
+                notifyItemRemoved(pos)
                 onChanged()
             }
         }
