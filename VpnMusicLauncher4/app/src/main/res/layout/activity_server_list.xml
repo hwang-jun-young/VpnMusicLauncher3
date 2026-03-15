@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0A0A0F">
+
+    <!-- 상단 타이틀 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <Button
+            android:id="@+id/btnBack"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="← 뒤로"
+            android:textSize="13sp"
+            android:textColor="#CCCCCC"
+            android:backgroundTint="#1E1E2E"
+            android:stateListAnimator="@null" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="서버 목록"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:gravity="center" />
+
+        <View
+            android:layout_width="80dp"
+            android:layout_height="40dp" />
+
+    </LinearLayout>
+
+    <!-- 검색창 -->
+    <EditText
+        android:id="@+id/etSearch"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="8dp"
+        android:hint="IP, 국가 검색..."
+        android:textColor="#FFFFFF"
+        android:textColorHint="#666666"
+        android:background="#1E1E2E"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:inputType="text"
+        android:textSize="14sp" />
+
+    <!-- 버튼들 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="8dp">
+
+        <Button
+            android:id="@+id/btnLoadVpnGate"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="🌐 VPN Gate"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#FF4444"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/btnSelectAll"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="☑ 전체선택"
+            android:textSize="11sp"
+            android:textColor="#CCCCCC"
+            android:backgroundTint="#1E1E2E"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/btnDeleteSelected"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="🗑 선택삭제"
+            android:textSize="11sp"
+            android:textColor="#FF4444"
+            android:backgroundTint="#1E1E2E"
+            android:stateListAnimator="@null" />
+
+    </LinearLayout>
+
+    <!-- Save / Load 버튼 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="8dp">
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="💾 Save (체크된 서버 저장)"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#224422"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/btnLoad"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="📂 Load (내 목록 불러오기)"
+            android:textSize="11sp"
+            android:textColor="#CCCCCC"
+            android:backgroundTint="#1E1E2E"
+            android:stateListAnimator="@null" />
+
+    </LinearLayout>
+
+    <!-- 안내 텍스트 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="8dp"
+        android:text="체크된 서버를 순서대로 연결합니다. 체크된 서버가 위로 정렬됩니다."
+        android:textSize="12sp"
+        android:textColor="#666666" />
+
+    <!-- 서버 목록 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="8dp" />
+
+</LinearLayout>
