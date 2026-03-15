@@ -35,11 +35,9 @@ object VpnGateManager {
     suspend fun getBestServer(context: Context): VpnServer? = withContext(Dispatchers.IO) {
         val servers = fetchFastestServers(context)
         if (servers.isEmpty()) return@withContext null
-
         val topServers = servers.take(TOP_SERVERS_TO_PING)
         var bestServer: VpnServer? = null
         var bestPing = Int.MAX_VALUE
-
         for (server in topServers) {
             val ping = measurePing(server.ip)
             if (ping != -1 && ping < bestPing) {
@@ -134,14 +132,14 @@ object VpnGateManager {
             val trimmed = line.trim()
             if (trimmed.isBlank()) continue
 
-            // 헤더 줄 찾기
+            // 헤더 찾기 (#HostName 또는 HostName으로 시작)
             if (trimmed.contains("HostName") && trimmed.contains("OpenVPN_ConfigData_Base64")) {
                 headerFound = true
                 continue
             }
 
-            // * % 로 시작하는 줄 건너뛰기 (#은 헤더일 수 있으므로 건너뛰지 않음)
-            if (trimmed.startsWith("*") || trimmed.startsWith("%")) continue
+            // * % # 로 시작하는 줄 건너뛰기
+            if (trimmed.startsWith("*") || trimmed.startsWith("%") || trimmed.startsWith("#")) continue
             if (!headerFound) continue
 
             val cols = trimmed.split(",")
